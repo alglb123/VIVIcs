@@ -1,11 +1,16 @@
 import threading
 import os
 import cv2
+import numpy as np
 import mediapipe as mp
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
+from PIL import ImageFont, ImageDraw, Image
 from modules import event_bus
 from modules.control.command_dict import GESTURE_COMMANDS
+
+_FONT_PATH = "C:/Windows/Fonts/msyh.ttc"
+_font = ImageFont.truetype(_FONT_PATH, 28) if os.path.exists(_FONT_PATH) else None
 
 _MODEL_PATH = os.path.join(os.path.dirname(__file__), "../../hand_landmarker.task")
 _stop_event = threading.Event()
@@ -58,6 +63,14 @@ def _classify(landmarks) -> str | None:
     return None
 
 
+def _put_chinese(frame, text: str, pos: tuple):
+    img_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(img_pil)
+    font = _font or ImageFont.load_default()
+    draw.text(pos, text, font=font, fill=(0, 255, 128))
+    return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
+
 def _draw(frame, landmarks, gesture: str | None):
     h, w = frame.shape[:2]
     pts = [(int(lm.x * w), int(lm.y * h)) for lm in landmarks]
@@ -68,8 +81,8 @@ def _draw(frame, landmarks, gesture: str | None):
     if gesture:
         label = _GESTURE_LABELS.get(gesture, gesture)
         cmd = GESTURE_COMMANDS.get(gesture, "")
-        cv2.putText(frame, f"{label} -> {cmd}", (10, 36),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 128), 2)
+        frame = _put_chinese(frame, f"{label} → {cmd}", (10, 10))
+    return frame
 
 
 def _detect_loop():
@@ -104,7 +117,7 @@ def _detect_loop():
             gesture = None
             if result.hand_landmarks:
                 gesture = _classify(result.hand_landmarks[0])
-                _draw(frame, result.hand_landmarks[0], gesture)
+                frame = _draw(frame, result.hand_landmarks[0], gesture)
 
             if gesture and gesture != last_gesture:
                 cmd = GESTURE_COMMANDS.get(gesture)
