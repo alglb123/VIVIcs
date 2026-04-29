@@ -1,3 +1,4 @@
+import threading
 import customtkinter as ctk
 from modules.gui.device_panel import DevicePanel
 from modules.gui.log_panel import LogPanel
@@ -5,6 +6,7 @@ from modules.gui.room_canvas import RoomCanvas
 from modules import event_bus
 from modules.voice import listener as voice_listener
 from modules.gesture import detector as gesture_detector
+from modules.voiceprint.enroll import enroll, has_template
 from datetime import datetime
 
 
@@ -63,6 +65,15 @@ class MainWindow(ctk.CTk):
         )
         self._gesture_btn.pack(fill="x", padx=10, pady=(3, 6))
 
+        # 声纹注册按钮
+        self._enroll_btn = ctk.CTkButton(
+            parent, text="🔐 注册声纹", height=28, fg_color="#6a1b9a",
+            hover_color="#7b1fa2", command=self._start_enroll
+        )
+        self._enroll_btn.pack(fill="x", padx=10, pady=(6, 2))
+        if has_template():
+            self._enroll_btn.configure(text="🔐 重新注册声纹")
+
         ctk.CTkLabel(parent, text="指令控制", font=("", 12)).pack(pady=(6, 4))
         from modules.control.command_dict import COMMANDS
         for cmd_text in COMMANDS:
@@ -70,6 +81,17 @@ class MainWindow(ctk.CTk):
                 parent, text=cmd_text, height=28,
                 command=lambda t=cmd_text: self._fire(t)
             ).pack(fill="x", padx=10, pady=2)
+
+    def _start_enroll(self):
+        self._enroll_btn.configure(state="disabled", text="录音中...")
+        event_bus.put({"type": "log", "msg": "开始声纹注册，请准备说话（3段×5秒）"})
+
+        def _run():
+            enroll(n_samples=3, seconds=5)
+            event_bus.put({"type": "log", "msg": "声纹注册完成"})
+            event_bus.put({"type": "enroll_done"})
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def _toggle_gesture(self):
         if not self._gesturing:
@@ -118,6 +140,8 @@ class MainWindow(ctk.CTk):
             elif t == "voice_text":
                 from modules.control.executor import execute
                 execute(event["text"])
+            elif t == "enroll_done":
+                self._enroll_btn.configure(state="normal", text="🔐 重新注册声纹")
             elif t == "voice_stopped":
                 self._listening = False
                 self._mic_btn.configure(

@@ -3,6 +3,7 @@ import numpy as np
 import speech_recognition as sr
 import noisereduce as nr
 from modules import event_bus
+from modules.voiceprint.verifier import verify
 
 _recognizer = sr.Recognizer()
 _recognizer.energy_threshold = 300
@@ -26,6 +27,13 @@ def _listen_loop():
             raw = np.frombuffer(audio.get_raw_data(convert_rate=16000, convert_width=2),
                                 dtype=np.int16).astype(np.float32)
             denoised = nr.reduce_noise(y=raw, sr=16000, stationary=False)
+
+            # 声纹校验
+            passed, score = verify(denoised)
+            if not passed:
+                event_bus.put({"type": "log", "msg": f"声纹验证失败 (相似度 {score:.2f})，拒绝执行"})
+                continue
+
             denoised_int = denoised.astype(np.int16)
             clean_audio = sr.AudioData(denoised_int.tobytes(), 16000, 2)
 
