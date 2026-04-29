@@ -1,0 +1,28 @@
+[project]
+name = "smart-voice-control"
+version = "0.1.0"
+description = "可视化智能语音交互控制系统"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "customtkinter>=5.2.0",
+    "pyaudio>=0.2.14",
+    "webrtcvad>=2.0.10",
+    "noisereduce>=3.0.0",
+    "mediapipe>=0.10.0",
+    "cvzone>=1.6.1",
+    "resemblyzer>=0.1.1.dev0",
+    "numpy>=1.26.0",
+    "scipy>=1.11.0",
+    "opencv-python>=4.8.0",
+]
+
+[project.scripts]
+start = "main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["modules"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
