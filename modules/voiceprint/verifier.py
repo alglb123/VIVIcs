@@ -23,7 +23,11 @@ def _get_template() -> np.ndarray | None:
 def verify(wav: np.ndarray) -> tuple[bool, float]:
     template = _get_template()
     if template is None:
-        return True, 1.0  # 未注册则放行
+        return True, 1.0
+    # 归一化到 [-1, 1]，消除 pyaudio int16 和 sounddevice float32 的幅度差异
+    max_val = np.abs(wav).max()
+    if max_val > 0:
+        wav = wav / max_val
     wav = preprocess_wav(wav, source_sr=AUDIO_SAMPLE_RATE)
     embed = _get_encoder().embed_utterance(wav)
     score = float(np.dot(embed, template) /

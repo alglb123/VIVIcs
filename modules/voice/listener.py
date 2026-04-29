@@ -6,8 +6,10 @@ from modules import event_bus
 from modules.voiceprint.verifier import verify
 
 _recognizer = sr.Recognizer()
-_recognizer.energy_threshold = 300
+_recognizer.energy_threshold = 1000       # 提高避免噪音误触发
 _recognizer.dynamic_energy_threshold = True
+_recognizer.pause_threshold = 1.2         # 停顿1.2秒才切断，避免截断长句
+_recognizer.phrase_threshold = 0.3
 
 _stop_event = threading.Event()
 _thread: threading.Thread | None = None
