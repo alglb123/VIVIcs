@@ -28,19 +28,24 @@ _GESTURE_LABELS = {
 }
 
 
-def _fingers_up(landmarks, is_right: bool) -> list[bool]:
-    tips = [4, 8, 12, 16, 20]
-    pips = [3, 6, 10, 14, 18]
-    # 右手拇指向右伸出时 tip.x > pip.x，左手相反
-    thumb_up = landmarks[tips[0]].x > landmarks[pips[0]].x if is_right else landmarks[tips[0]].x < landmarks[pips[0]].x
-    up = [thumb_up]
-    for i in range(1, 5):
-        up.append(landmarks[tips[i]].y < landmarks[pips[i]].y)
-    return up
+def _fingers_up(landmarks) -> list[bool]:
+    tips = [8, 12, 16, 20]
+    pips = [6, 10, 14, 18]
+    return [landmarks[tips[i]].y < landmarks[pips[i]].y for i in range(4)]
 
 
-def _classify(landmarks, is_right: bool) -> str | None:
-    up = _fingers_up(landmarks, is_right)
+def _classify(landmarks) -> str | None:
+    up = _fingers_up(landmarks)
+    count = sum(up)
+    if count == 4:
+        return "open_palm"
+    if count == 0:
+        return "fist"
+    if up[0] and up[1] and not up[2] and not up[3]:
+        return "victory"
+    if up[0] and not up[1] and not up[2] and not up[3]:
+        return "point_up"
+    return None
     count = sum(up[1:])
     if count == 5 or (up[0] and count == 4):
         return "open_palm"
@@ -98,9 +103,7 @@ def _detect_loop():
 
             gesture = None
             if result.hand_landmarks:
-                # handedness label: "Right"/"Left" 是从摄像头视角，实际是镜像，需取反
-                is_right = (result.handedness[0][0].category_name == "Left")
-                gesture = _classify(result.hand_landmarks[0], is_right)
+                gesture = _classify(result.hand_landmarks[0])
                 _draw(frame, result.hand_landmarks[0], gesture)
 
             if gesture and gesture != last_gesture:
