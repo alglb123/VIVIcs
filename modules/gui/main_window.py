@@ -4,6 +4,7 @@ from modules.gui.log_panel import LogPanel
 from modules.gui.room_canvas import RoomCanvas
 from modules import event_bus
 from modules.voice import listener as voice_listener
+from modules.gesture import detector as gesture_detector
 from datetime import datetime
 
 
@@ -15,6 +16,7 @@ class MainWindow(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         self._listening = False
+        self._gesturing = False
         self._build_ui()
         self._poll_events()
 
@@ -53,7 +55,13 @@ class MainWindow(ctk.CTk):
             parent, text="🎤 开始监听", height=36, fg_color="#1565c0",
             hover_color="#1976d2", command=self._toggle_voice
         )
-        self._mic_btn.pack(fill="x", padx=10, pady=(14, 6))
+        self._mic_btn.pack(fill="x", padx=10, pady=(14, 3))
+        # 手势按钮
+        self._gesture_btn = ctk.CTkButton(
+            parent, text="✋ 开始手势", height=36, fg_color="#2e7d32",
+            hover_color="#388e3c", command=self._toggle_gesture
+        )
+        self._gesture_btn.pack(fill="x", padx=10, pady=(3, 6))
 
         ctk.CTkLabel(parent, text="指令控制", font=("", 12)).pack(pady=(6, 4))
         from modules.control.command_dict import COMMANDS
@@ -62,6 +70,20 @@ class MainWindow(ctk.CTk):
                 parent, text=cmd_text, height=28,
                 command=lambda t=cmd_text: self._fire(t)
             ).pack(fill="x", padx=10, pady=2)
+
+    def _toggle_gesture(self):
+        if not self._gesturing:
+            self._gesturing = True
+            self._gesture_btn.configure(
+                text="⏹ 停止手势", fg_color="#b71c1c", hover_color="#c62828"
+            )
+            gesture_detector.start()
+        else:
+            self._gesturing = False
+            self._gesture_btn.configure(
+                text="✋ 开始手势", fg_color="#2e7d32", hover_color="#388e3c"
+            )
+            gesture_detector.stop()
 
     def _toggle_voice(self):
         if not self._listening:
@@ -97,9 +119,13 @@ class MainWindow(ctk.CTk):
                 from modules.control.executor import execute
                 execute(event["text"])
             elif t == "voice_stopped":
-                # 网络异常导致线程退出时同步按钮状态
                 self._listening = False
                 self._mic_btn.configure(
                     text="🎤 开始监听", fg_color="#1565c0", hover_color="#1976d2"
+                )
+            elif t == "gesture_stopped":
+                self._gesturing = False
+                self._gesture_btn.configure(
+                    text="✋ 开始手势", fg_color="#2e7d32", hover_color="#388e3c"
                 )
         self.after(100, self._poll_events)
