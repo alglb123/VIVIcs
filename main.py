@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="webrtcvad")
+
 from modules.gui.main_window import MainWindow
 
 
