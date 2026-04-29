@@ -3,6 +3,7 @@ from modules.gui.device_panel import DevicePanel
 from modules.gui.log_panel import LogPanel
 from modules.gui.room_canvas import RoomCanvas
 from modules import event_bus
+from modules.voice import listener as voice_listener
 from datetime import datetime
 
 
@@ -13,6 +14,7 @@ class MainWindow(ctk.CTk):
         self.geometry("1050x560")
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
+        self._listening = False
         self._build_ui()
         self._poll_events()
 
@@ -46,13 +48,34 @@ class MainWindow(ctk.CTk):
         self._log_panel.pack(fill="both", expand=True, padx=4, pady=(0, 8))
 
     def _build_buttons(self, parent):
-        ctk.CTkLabel(parent, text="指令控制", font=("", 12)).pack(pady=(14, 4))
+        # 麦克风按钮
+        self._mic_btn = ctk.CTkButton(
+            parent, text="🎤 开始监听", height=36, fg_color="#1565c0",
+            hover_color="#1976d2", command=self._toggle_voice
+        )
+        self._mic_btn.pack(fill="x", padx=10, pady=(14, 6))
+
+        ctk.CTkLabel(parent, text="指令控制", font=("", 12)).pack(pady=(6, 4))
         from modules.control.command_dict import COMMANDS
         for cmd_text in COMMANDS:
             ctk.CTkButton(
                 parent, text=cmd_text, height=28,
                 command=lambda t=cmd_text: self._fire(t)
             ).pack(fill="x", padx=10, pady=2)
+
+    def _toggle_voice(self):
+        if not self._listening:
+            self._listening = True
+            self._mic_btn.configure(
+                text="⏹ 停止监听", fg_color="#b71c1c", hover_color="#c62828"
+            )
+            voice_listener.start()
+        else:
+            self._listening = False
+            self._mic_btn.configure(
+                text="🎤 开始监听", fg_color="#1565c0", hover_color="#1976d2"
+            )
+            voice_listener.stop()
 
     def _fire(self, text: str):
         from modules.control.executor import execute
@@ -63,10 +86,20 @@ class MainWindow(ctk.CTk):
             event = event_bus.get_nowait()
             if event is None:
                 break
-            if event["type"] == "state_change":
+            t = event["type"]
+            if t == "state_change":
                 self._device_panel.refresh()
                 self._room.refresh()
-            elif event["type"] == "log":
+            elif t == "log":
                 ts = datetime.now().strftime("%H:%M:%S")
                 self._log_panel.append(f"[{ts}] {event['msg']}")
+            elif t == "voice_text":
+                from modules.control.executor import execute
+                execute(event["text"])
+            elif t == "voice_stopped":
+                # 网络异常导致线程退出时同步按钮状态
+                self._listening = False
+                self._mic_btn.configure(
+                    text="🎤 开始监听", fg_color="#1565c0", hover_color="#1976d2"
+                )
         self.after(100, self._poll_events)
